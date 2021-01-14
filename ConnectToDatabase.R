@@ -1,6 +1,6 @@
 library(purrr);library(dplyr);library(DBI);library(RPostgres);library(data.table);library(odbc)
 
-#covid_df = list.files(pattern = "*.csv") %>% map_df(~fread(.))
+#covid_df = list.files(pattern = "*.csv") %>% map_df(~fread(., quote = FALSE))
 
 con <- DBI::dbConnect(odbc::odbc(),
 Driver   = "PostgreSQL ANSI(x64)",
