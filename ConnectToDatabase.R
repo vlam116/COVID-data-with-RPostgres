@@ -12,4 +12,4 @@ Port     = 5432)
 
 #dbWriteTable(con, "daily_reports", covid_df)
 
-
+dbDisconnect(con)
