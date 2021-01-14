@@ -1,4 +1,5 @@
 ## Fetching data for California from the database and ordering chronologically
+library(dplyr);library(data.table)
 
 cali = dbGetQuery(con, "
                   SELECT 
@@ -22,9 +23,23 @@ cali = dbGetQuery(con, "
                     last_update
                   ")
 
-## Creating new features from data to reflect daily change and percent change over time
+## Aggregating data from covidtracking to fill in missing data
 
 cali = as.data.table(cali)
+cali$last_update = as.Date(cali$last_update)
+
+CA_history = fread("california-history.csv", header = T)
+CA_history = as.data.table(CA_history)
+CA_history$last_update = as.Date(CA_history$last_update, format = "%m/%d/%Y")
+CA_history = CA_history[last_update >= "2020-04-12"]
+CA_history = CA_history[order(last_update)]
+
+## JHU has data missing for two days, these rows will be removed from the covidtracking data
+
+CA_history = CA_history[(CA_history$last_update %in% cali$last_update) == TRUE]
+
+## Creating new features from data to reflect daily change and percent change over time
+
 
 daily_change = cali %>% 
   select(last_update, confirmed, deaths, active, total_test_results, people_tested) %>%
