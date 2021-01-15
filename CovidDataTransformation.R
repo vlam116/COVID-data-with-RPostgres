@@ -54,14 +54,23 @@ cali = cali %>% mutate(Hospitalized_Currently = CA_history$hospitalizedCurrently
                 recovered = NULL)
 
 
+## Discovered inconsistency in reported cumulative deaths; since JHU aggregates counts from many sources,
+## the cumulative death count updated on 2020-09-21 is less than the count reported the previous day.
+
+cali[last_update == "2020-09-21"] = cali %>% filter(last_update == "2020-09-21") %>% mutate(deaths = 15018)
+
 ## Creating new features from data to reflect daily change and percent change over time
 
 
 daily_change = cali %>% 
-  select(last_update, confirmed, deaths, active, total_test_results, people_tested) %>%
-  mutate(Daily_Deaths = (deaths-lag(deaths)),
-         Daily_Tests = (people_tested-lag(people_tested)),
-         Daily_Active_Cases = (active-lag(active)))
+  select(last_update, confirmed, deaths, active, total_test_results, Daily_Neg_Increase, 
+         Daily_Pos_Increase, Hospitalized_Currently, In_ICU_Currently) %>%
+  mutate(Change_Deaths = (deaths-lag(deaths)),
+         Change_Test_Results = total_test_results-lag(total_test_results),
+         Change_Active_Cases = active-lag(active),
+         Change_Confirmed_Cases = confirmed - lag(confirmed),
+         Daily_Hospitalizations_Change = Hospitalized_Currently-lag(Hospitalized_Currently),
+         Daily_ICU_Change = In_ICU_Currently - lag(In_ICU_Currently))
 
 percent_daily_change = daily_change %>%
     select(last_update, Daily_Deaths, Daily_Active_Cases, Daily_Tests) %>%
