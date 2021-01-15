@@ -47,7 +47,12 @@ cali = cali %>% mutate(Hospitalized_Currently = CA_history$hospitalizedCurrently
                 Daily_Neg_Increase = CA_history$negativeIncrease,
                 Positive_Test_Result = CA_history$positive,
                 Daily_Pos_Increase = CA_history$positiveIncrease,
-                Test_Results_Increase = CA_history$totalTestResultsIncrease)
+                Test_Results_Increase = CA_history$totalTestResultsIncrease,
+                case_fatality_ratio = (deaths*100)/confirmed,
+                mortality_rate = NULL,
+                people_tested = NULL,
+                recovered = NULL)
+
 
 ## Creating new features from data to reflect daily change and percent change over time
 
