@@ -59,33 +59,38 @@ cali = cali %>% mutate(Hospitalized_Currently = CA_history$hospitalizedCurrently
 
 cali[last_update == "2020-09-21"] = cali %>% filter(last_update == "2020-09-21") %>% mutate(deaths = 15018)
 
-## Creating new features from data to reflect daily change and percent change over time
+## Creating new features from data to reflect daily change over time.
 
+## Daily increases or decreases compared to previous day records.
 
 daily_change = cali %>% 
   select(last_update, confirmed, deaths, active, total_test_results, Daily_Neg_Increase, 
          Daily_Pos_Increase, Hospitalized_Currently, In_ICU_Currently) %>%
-  mutate(Change_Deaths = (deaths-lag(deaths)),
-         Change_Test_Results = total_test_results-lag(total_test_results),
+  mutate(Increase_Deaths = (deaths-lag(deaths)),
+         Increase_Test_Results = total_test_results-lag(total_test_results),
+         Increase_Confirmed_Cases = confirmed - lag(confirmed),
          Change_Active_Cases = active-lag(active),
-         Change_Confirmed_Cases = confirmed - lag(confirmed),
          Daily_Hospitalizations_Change = Hospitalized_Currently-lag(Hospitalized_Currently),
-         Daily_ICU_Change = In_ICU_Currently - lag(In_ICU_Currently))
+         Daily_ICU_Change = In_ICU_Currently - lag(In_ICU_Currently),
+         Daily_Change_Deaths = Increase_Deaths-lag(Increase_Deaths),
+         Daily_Change_Test_Results = Increase_Test_Results-lag(Increase_Test_Results),
+         Daily_Change_Confirmed_Cases = Increase_Confirmed_Cases - lag(Increase_Confirmed_Cases),
+         Daily_Change_Active_Cases = Change_Active_Cases - lag(Change_Active_Cases)) %>%
+  select(last_update, Increase_Deaths, Increase_Test_Results, Increase_Confirmed_Cases,
+         Change_Active_Cases, Daily_Hospitalizations_Change, Daily_ICU_Change,
+         Daily_Change_Deaths, Daily_Change_Test_Results, Daily_Change_Confirmed_Cases,
+         Daily_Change_Active_Cases)
 
-percent_daily_change = daily_change %>%
-    select(last_update, Daily_Deaths, Daily_Active_Cases, Daily_Tests) %>%
-    mutate(Percent_Change_Daily_Deaths = 
-             ((Daily_Deaths-lag(Daily_Deaths))/lag(Daily_Deaths)*100),
-           Percent_Change_Daily_Active_Cases = 
-             (Daily_Active_Cases-lag(Daily_Active_Cases))/lag(Daily_Active_Cases)*100,
-           Percent_Change_Daily_Testing =
-             (Daily_Tests-lag(Daily_Tests))/lag(Daily_Tests)*100)
+## Daily percent increases in total number of deaths, confirmed cases, and testing results.
 
-percent_cumulative_change = cali %>%
-  select(last_update, deaths, active, people_tested) %>%
-  mutate(Percent_Increase_Total_Deaths = 
-           (deaths-lag(deaths))/lag(deaths)*100,
-         Percent_Increase_Total_Active_Cases =
-           (active-lag(active))/lag(active)*100,
-         Percent_Increase_Total_Tests = 
-           (people_tested-lag(people_tested))/lag(people_tested)*100)
+daily_percent_increase_in_cumulative_totals = cali %>%
+  select(last_update, deaths, confirmed, total_test_results) %>%
+  mutate(Daily_Percent_Increase_Cumulative_Deaths = 
+           (deaths - lag(deaths))/lag(deaths)*100,
+         Daily_Percent_Increase_Cumulative_Confirmed_Cases =
+           (confirmed - lag(confirmed))/lag(confirmed)*100,
+         Daily_Percent_Increase_Cumulative_Testing =
+           (total_test_results-lag(total_test_results))/lag(total_test_results)*100) %>%
+  select(last_update, Daily_Percent_Increase_Cumulative_Deaths, Daily_Percent_Increase_Cumulative_Confirmed_Cases,
+         Daily_Percent_Increase_Cumulative_Testing)
+
