@@ -38,6 +38,17 @@ CA_history = CA_history[order(last_update)]
 
 CA_history = CA_history[(CA_history$last_update %in% cali$last_update) == TRUE]
 
+## Filling in missing data in JHU data table with covidtracking state data and appending new columns
+
+cali$total_test_results = CA_history$totalTestResults
+cali = cali %>% mutate(Hospitalized_Currently = CA_history$hospitalizedCurrently,
+                In_ICU_Currently = CA_history$inIcuCurrently,
+                Negative_Test_Result = CA_history$negative,
+                Daily_Neg_Increase = CA_history$negativeIncrease,
+                Positive_Test_Result = CA_history$positive,
+                Daily_Pos_Increase = CA_history$positiveIncrease,
+                Test_Results_Increase = CA_history$totalTestResultsIncrease)
+
 ## Creating new features from data to reflect daily change and percent change over time
 
 
