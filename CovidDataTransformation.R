@@ -94,3 +94,27 @@ daily_percent_increase_in_cumulative_totals = cali %>%
   select(last_update, Daily_Percent_Increase_Cumulative_Deaths, Daily_Percent_Increase_Cumulative_Confirmed_Cases,
          Daily_Percent_Increase_Cumulative_Testing)
 
+## Monthly aggregations - note that there is incomplete data for the months of 04-20 and 01-21, these
+## values should be excluded in any monthly time series visualizations
+
+daily_change$Month_Year = format(as.Date(daily_change$last_update), "%Y-%m")
+
+monthly_change = 
+  daily_change %>% 
+  group_by(Month_Year) %>% 
+  summarise(Total_Monthly_Deaths = sum(Increase_Deaths, na.rm = T),
+            Total_Monthly_Tests = sum(Increase_Test_Results, na.rm = T),
+            Total_Monthly_Cases = sum(Increase_Confirmed_Cases, na.rm = T),
+            Total_Monthly_Active = sum(Change_Active_Cases, na.rm = T),
+            Monthly_Change_Deaths = sum(Daily_Change_Deaths, na.rm = T),
+            Monthly_Change_Tests = sum(Daily_Change_Test_Results, na.rm = T),
+            Monthly_Change_Cases = sum(Daily_Change_Confirmed_Cases, na.rm = T),
+            Monthly_Change_Active = sum(Daily_Change_Active_Cases, na.rm = T),
+            Monthly_Change_Hospitalizations = sum(Daily_Hospitalizations_Change, na.rm = T),
+            Monthly_Change_ICU = sum(Daily_ICU_Change, na.rm =T)) 
+
+
+
+
+
+
