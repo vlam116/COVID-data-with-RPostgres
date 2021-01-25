@@ -108,18 +108,16 @@ covid_df = dbGetQuery(con, "
                         last_update ASC
                       ")
 
-covid_df = as.data.table(covid_df)
-covid_df = covid_df %>% 
-  group_by(province_state, last_update) %>%
-  filter(province_state != "California") %>%
-  mutate(Daily_Avg_TestingRate = mean(testing_rate))
-Daily_Avg_TestingRate = dailyTestingRate_by_PS %>% 
-  group_by(Last_Update) %>%
-  mutate(Daily_Avg_TestingRate = mean(Testing_Rate, na.rm = T)) %>%
-  filter(Province_State == "California")
-Daily_Avg_TestingRate$Last_Update = as.Date(Daily_Avg_TestingRate$Last_Update)
-Daily_Avg_TestingRate = as.data.table(Daily_Avg_TestingRate)
-Daily_Avg_TestingRate = Daily_Avg_TestingRate[order(Last_Update)]
+covid_df$last_update = as.Date(covid_df$last_update)
+covid_df = covid_df[(covid_df$last_update %in% cali$last_update) == TRUE]
+
+Daily_Avg_TestingRate = covid_df %>% 
+  group_by(last_update) %>% 
+  filter(province_state != 'California') %>%
+  mutate(Daily_Avg_TestingRate = mean(testing_rate, na.rm = T))
+
+cali$Daily_Avg_TestingRate = unique(Daily_Avg_TestingRate$Daily_Avg_TestingRate)
+
 
 
 
