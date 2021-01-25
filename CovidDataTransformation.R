@@ -2,56 +2,69 @@
 library(dplyr);library(data.table)
 
 cali = dbGetQuery(con, "
-                  SELECT 
-                    Province_State,
-                    Last_Update,
-                    Confirmed,
-                    Deaths,
-                    Recovered,
-                    Active,
-                    Incident_Rate,
-                    Total_Test_Results,
-                    Case_Fatality_Ratio,
-                    Testing_Rate,
-                    People_Tested,
-                    Mortality_Rate
-                  FROM 
-                    daily_reports 
-                  WHERE 
-                    Province_State = 'California'
-                  ORDER BY 
-                    last_update
+                  SELECT
+	                  last_update,
+	                  confirmed,
+                	  deaths,
+	                  incident_rate,
+	                  total_test_results,
+	                  case_fatality_ratio,
+	                  testing_rate
+                  FROM
+                  	daily_reports_ca
+                  WHERE
+	                  province_state = 'California'
+                  ORDER BY
+	                  last_update ASC
                   ")
 
-## Aggregating data from covidtracking to fill in missing data
+CA_history = dbGetQuery(con, "
+                        SELECT
+                          date,
+	                        hospitalizedcurrently,
+	                        inicucurrently,
+	                        negative,
+                        	positive,
+	                        totaltestresults,
+	                        totaltestresultsincrease
+                        FROM
+	                        ca_history
+                        WHERE
+	                        date >= '2020-04-12'
+                        ORDER BY
+	                        date ASC")
+
+## Aggregating data from covidtracking to fill in missing data and insert new columns
 
 cali = as.data.table(cali)
 cali$last_update = as.Date(cali$last_update)
 
-CA_history = fread("california-history.csv", header = T)
 CA_history = as.data.table(CA_history)
 CA_history$last_update = as.Date(CA_history$last_update, format = "%m/%d/%Y")
 CA_history = CA_history[last_update >= "2020-04-12"]
 CA_history = CA_history[order(last_update)]
 
-## JHU has data missing for two days, these rows will be removed from the covidtracking data
+## JHU has some inconsistencies in reporting data for 2020-04-23, this row will be removed from the 
+## covidtracking data to avoid any possible misinformation 
 
-CA_history = CA_history[(CA_history$last_update %in% cali$last_update) == TRUE]
+CA_history = CA_history[(CA_history$date %in% cali$last_update) == TRUE]
+
+## JHU is one day ahead of covidtracking in reporting data, so I will just remove the most recent 
+## update from the JHU dataset. 
+
+cali = cali[(cali$last_update %in% CA_history$date) == TRUE]
 
 ## Filling in missing data in JHU data table with covidtracking state data and appending new columns
 
-cali$total_test_results = CA_history$totalTestResults
-cali = cali %>% mutate(Hospitalized_Currently = CA_history$hospitalizedCurrently,
-                In_ICU_Currently = CA_history$inIcuCurrently,
+cali$total_test_results = CA_history$totaltestresults
+cali = cali %>% mutate(Hospitalized_Currently = CA_history$hospitalizedcurrently,
+                In_ICU_Currently = CA_history$inicuCurrently,
                 Negative_Test_Result = CA_history$negative,
-                Daily_Neg_Increase = CA_history$negativeIncrease,
+                Daily_Neg_Increase = CA_history$negativeincrease,
                 Positive_Test_Result = CA_history$positive,
-                Daily_Pos_Increase = CA_history$positiveIncrease,
-                Test_Results_Increase = CA_history$totalTestResultsIncrease,
-                case_fatality_ratio = (deaths*100)/confirmed,
-                mortality_rate = NULL,
-                people_tested = NULL,
-                recovered = NULL)
+                Daily_Pos_Increase = CA_history$positiveincrease,
+                Test_Results_Increase = CA_history$totaltestresultsincrease,
+                case_fatality_ratio = (deaths*100)/confirmed)
 
 
 ## Discovered inconsistency in reported cumulative deaths; since JHU aggregates counts from many sources,
@@ -61,59 +74,52 @@ cali[last_update == "2020-09-21"] = cali %>% filter(last_update == "2020-09-21")
 
 ## Creating new features from data to reflect daily change over time.
 
-## Daily increases or decreases compared to previous day records.
+## Daily increases compared to the previous day for deaths and confirmed cases.
 
-daily_change = cali %>% 
-  select(last_update, confirmed, deaths, active, total_test_results, Daily_Neg_Increase, 
-         Daily_Pos_Increase, Hospitalized_Currently, In_ICU_Currently) %>%
-  mutate(Increase_Deaths = (deaths-lag(deaths)),
-         Increase_Test_Results = total_test_results-lag(total_test_results),
-         Increase_Confirmed_Cases = confirmed - lag(confirmed),
-         Change_Active_Cases = active-lag(active),
-         Daily_Hospitalizations_Change = Hospitalized_Currently-lag(Hospitalized_Currently),
-         Daily_ICU_Change = In_ICU_Currently - lag(In_ICU_Currently),
-         Daily_Change_Deaths = Increase_Deaths-lag(Increase_Deaths),
-         Daily_Change_Test_Results = Increase_Test_Results-lag(Increase_Test_Results),
-         Daily_Change_Confirmed_Cases = Increase_Confirmed_Cases - lag(Increase_Confirmed_Cases),
-         Daily_Change_Active_Cases = Change_Active_Cases - lag(Change_Active_Cases)) %>%
-  select(last_update, Increase_Deaths, Increase_Test_Results, Increase_Confirmed_Cases,
-         Change_Active_Cases, Daily_Hospitalizations_Change, Daily_ICU_Change,
-         Daily_Change_Deaths, Daily_Change_Test_Results, Daily_Change_Confirmed_Cases,
-         Daily_Change_Active_Cases)
+cali = cali %>% 
+  mutate(Increase_Deaths = 
+           deaths-lag(deaths),
+         Increase_Confirmed_Cases = 
+           confirmed - lag(confirmed))
 
 ## Daily percent increases in total number of deaths, confirmed cases, and testing results.
 
-daily_percent_increase_in_cumulative_totals = cali %>%
-  select(last_update, deaths, confirmed, total_test_results) %>%
-  mutate(Daily_Percent_Increase_Cumulative_Deaths = 
+cali = cali %>%
+  mutate(Percent_Increase_Deaths = 
            (deaths - lag(deaths))/lag(deaths)*100,
-         Daily_Percent_Increase_Cumulative_Confirmed_Cases =
+         Percent_Increase_Cases =
            (confirmed - lag(confirmed))/lag(confirmed)*100,
-         Daily_Percent_Increase_Cumulative_Testing =
-           (total_test_results-lag(total_test_results))/lag(total_test_results)*100) %>%
-  select(last_update, Daily_Percent_Increase_Cumulative_Deaths, Daily_Percent_Increase_Cumulative_Confirmed_Cases,
-         Daily_Percent_Increase_Cumulative_Testing)
+         Percent_Increase_Testing =
+           (total_test_results-lag(total_test_results))/lag(total_test_results)*100)
 
-## Monthly aggregations - note that there is incomplete data for the months of 04-20 and 01-21, these
-## values should be excluded in any monthly time series visualizations
+## Creating a metric for the national average testing rate for comparison
 
-daily_change$Month_Year = format(as.Date(daily_change$last_update), "%Y-%m")
+covid_df = dbGetQuery(con, "
+                      SELECT
+                        province_state,
+                        last_update,
+                        testing_rate
+                      FROM
+                        daily_reports_ca
+                      WHERE 
+                        province_state not in ('Grand Princess','Diamond Princess')
+                        AND last_update >= '04-12-2020'
+                      ORDER BY 
+                        last_update ASC
+                      ")
 
-monthly_change = 
-  daily_change %>% 
-  group_by(Month_Year) %>% 
-  summarise(Total_Monthly_Deaths = sum(Increase_Deaths, na.rm = T),
-            Total_Monthly_Tests = sum(Increase_Test_Results, na.rm = T),
-            Total_Monthly_Cases = sum(Increase_Confirmed_Cases, na.rm = T),
-            Total_Monthly_Active = sum(Change_Active_Cases, na.rm = T),
-            Monthly_Change_Deaths = sum(Daily_Change_Deaths, na.rm = T),
-            Monthly_Change_Tests = sum(Daily_Change_Test_Results, na.rm = T),
-            Monthly_Change_Cases = sum(Daily_Change_Confirmed_Cases, na.rm = T),
-            Monthly_Change_Active = sum(Daily_Change_Active_Cases, na.rm = T),
-            Monthly_Change_Hospitalizations = sum(Daily_Hospitalizations_Change, na.rm = T),
-            Monthly_Change_ICU = sum(Daily_ICU_Change, na.rm =T)) 
-
-
+covid_df = as.data.table(covid_df)
+covid_df = covid_df %>% 
+  group_by(province_state, last_update) %>%
+  filter(province_state != "California") %>%
+  mutate(Daily_Avg_TestingRate = mean(testing_rate))
+Daily_Avg_TestingRate = dailyTestingRate_by_PS %>% 
+  group_by(Last_Update) %>%
+  mutate(Daily_Avg_TestingRate = mean(Testing_Rate, na.rm = T)) %>%
+  filter(Province_State == "California")
+Daily_Avg_TestingRate$Last_Update = as.Date(Daily_Avg_TestingRate$Last_Update)
+Daily_Avg_TestingRate = as.data.table(Daily_Avg_TestingRate)
+Daily_Avg_TestingRate = Daily_Avg_TestingRate[order(Last_Update)]
 
 
 
