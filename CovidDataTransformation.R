@@ -58,12 +58,12 @@ cali = cali[(cali$last_update %in% CA_history$date) == TRUE]
 
 cali$total_test_results = CA_history$totaltestresults
 cali = cali %>% mutate(Hospitalized_Currently = CA_history$hospitalizedcurrently,
-                In_ICU_Currently = CA_history$inicuCurrently,
+                In_ICU_Currently = CA_history$inicucurrently,
                 Negative_Test_Result = CA_history$negative,
                 Daily_Neg_Increase = CA_history$negativeincrease,
                 Positive_Test_Result = CA_history$positive,
                 Daily_Pos_Increase = CA_history$positiveincrease,
-                Test_Results_Increase = CA_history$totaltestresultsincrease,
+                Increase_Test_Results = CA_history$totaltestresultsincrease,
                 case_fatality_ratio = (deaths*100)/confirmed)
 
 
@@ -118,7 +118,7 @@ Daily_Avg_TestingRate = covid_df %>%
 
 cali$Daily_Avg_TestingRate = unique(Daily_Avg_TestingRate$Daily_Avg_TestingRate)
 
-
+write.csv(cali, "CA_updated_COVID_data.csv")
 
 
 
